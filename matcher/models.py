@@ -2,7 +2,7 @@ import random
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
 GENDER_CHOICES = [
     ('male', 'Male'),
@@ -63,10 +63,18 @@ class StudentUserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-class StudentUser(AbstractBaseUser):
+    def create_superuser(self, email, password=None):
+        user = self.create_user(email, password)
+        user.is_staff = True
+        user.is_superuser = True
+        user.save(using=self._db)
+        return user
+
+class StudentUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     is_verified = models.BooleanField(default=False)
     has_submitted_form = models.BooleanField(default=False)
+    is_staff = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

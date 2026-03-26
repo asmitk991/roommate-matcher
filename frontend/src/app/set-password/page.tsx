@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '@/utils/api';
 
 export default function SetPasswordPage() {
   const router = useRouter();
@@ -27,7 +27,7 @@ export default function SetPasswordPage() {
     }
 
     try {
-      const res = await axios.post('http://127.0.0.1:8000/api/set-password/', {
+      const res = await api.post('/api/set-password/', {
         email,
         password,
       });

@@ -1,6 +1,8 @@
+import networkx as nx
 from django.core.management.base import BaseCommand
 from matcher.models import UserProfile, MatchResult
 from itertools import combinations
+from django.core.mail import send_mail
 
 TECH_COURSES = {'csai', 'csds', 'dsai'}
 NON_TECH_COURSES = {'design', 'psych', 'bba'}
@@ -24,45 +26,65 @@ def calculate_score(p1, p2):
     return round(score, 2)
 
 class Command(BaseCommand):
-    help = "Matches students based on compatibility and saves MatchResult."
+    help = "Matches students based on compatibility using Maximum Weight Graph Matching."
 
     def handle(self, *args, **kwargs):
         MatchResult.objects.all().delete()
         profiles = list(UserProfile.objects.filter(is_submitted=True))
+        
+        G = nx.Graph()
+        for p in profiles:
+            G.add_node(p.id, profile=p)
+
+        for a, b in combinations(profiles, 2):
+            if a.gender != b.gender:
+                continue 
+            
+            base_score = calculate_score(a, b)
+            
+            # Artificial weight boosts ensure the algorithm prefers matching the same course/domain
+            # before it degrades the pair simply because they have compatible hobbies!
+            if a.course == b.course:
+                weight = base_score + 100 
+            elif get_domain(a.course) == get_domain(b.course):
+                weight = base_score + 50  
+            else:
+                weight = base_score      
+                
+            G.add_edge(a.id, b.id, weight=weight, score=base_score)
+
+        # Core optimization: Instead of greedy, we run Edmonds' Blossom algorithm!
+        matching = nx.max_weight_matching(G, maxcardinality=True)
+        
         matched_ids = set()
+        
+        for u, v in matching:
+            p1 = G.nodes[u]['profile']
+            p2 = G.nodes[v]['profile']
+            edge_data = G.get_edge_data(u, v)
+            actual_score = edge_data['score']
+            
+            MatchResult.objects.create(student1=p1, student2=p2, score=actual_score)
+            matched_ids.add(u)
+            matched_ids.add(v)
+            self.stdout.write(self.style.SUCCESS(f"✅ Graph Matched {p1.email} 🤝 {p2.email} (Score: {actual_score})"))
 
-        def get_valid_pairs(profile_list, course_strict=True, domain_fallback=False):
-            pairs = []
-            for a, b in combinations(profile_list, 2):
-                if a.id in matched_ids or b.id in matched_ids:
-                    continue
-                if a.gender != b.gender:
-                    continue
-                if course_strict and a.course != b.course:
-                    continue
-                if domain_fallback and not course_strict:
-                    if get_domain(a.course) != get_domain(b.course):
-                        continue
-                score = calculate_score(a, b)
-                pairs.append((score, a, b))
-            return sorted(pairs, reverse=True, key=lambda x: x[0])
+            # Notify users that their match is ready
+            email_subject = "🎉 Your Roommate Match is Ready!"
+            email_body = (
+                f"Great news!\n\n"
+                f"The admin has just finished running the matchmaking algorithm and your roommate profile has been paired!\n"
+                f"Log into the Roommate Matcher dashboard to check out who you've been matched with and see your shared habits.\n\n"
+                f"- The Roommate Matcher Team"
+            )
+            send_mail(
+                subject=email_subject,
+                message=email_body,
+                from_email="noreply@roommatematcher.com",
+                recipient_list=[p1.email, p2.email],
+                fail_silently=True,
+            )
 
-        # Phase 1: Same gender + same course
-        pairs = get_valid_pairs(profiles, course_strict=True)
-        # Phase 2: Same gender + same domain (tech vs non-tech)
-        pairs += get_valid_pairs(profiles, course_strict=False, domain_fallback=True)
-        # Phase 3: Same gender + any course (final fallback)
-        pairs += get_valid_pairs(profiles, course_strict=False, domain_fallback=False)
-
-        for score, a, b in pairs:
-            if a.id in matched_ids or b.id in matched_ids:
-                continue
-            MatchResult.objects.create(student1=a, student2=b, score=score)
-            matched_ids.add(a.id)
-            matched_ids.add(b.id)
-            self.stdout.write(self.style.SUCCESS(f"✅ Matched {a.email} 🤝 {b.email} (Score: {score})"))
-
-        # Final unmatched check (odd-number case)
         for p in profiles:
             if p.id not in matched_ids:
-                self.stdout.write(self.style.WARNING(f"⚠️ No match for {p.email}"))
+                self.stdout.write(self.style.WARNING(f"⚠️ Odd profile out: No mathematical pair for {p.email}"))

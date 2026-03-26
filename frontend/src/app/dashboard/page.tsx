@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
+import api from '@/utils/api'
 
 type UserData = {
     email: string;
@@ -20,7 +20,7 @@ export default function DashboardPage() {
       return
     }
 
-    axios.get('http://127.0.0.1:8000/api/auth/me/', {
+    api.get('/api/auth/me/', {
       headers: { Authorization: token },
     })
       .then(res => {

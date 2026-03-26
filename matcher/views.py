@@ -4,7 +4,7 @@ from rest_framework import generics
 from .serializers import UserProfileSerializer
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import UserProfile, MatchResult
+from .models import UserProfile, MatchResult, COURSE_CHOICES
 from .models import EmailOTP
 from django.core.mail import send_mail
 import random
@@ -30,7 +30,21 @@ class UserProfileCreateView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         print("🔥 Incoming data:", request.data)
+
+        token = request.headers.get('Authorization')
+        if not token:
+            return Response({'error': 'Authentication required. Please log in.'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            token_email = payload.get('email', '').strip().lower()
+        except (jwt.ExpiredSignatureError, jwt.DecodeError):
+            return Response({'error': 'Invalid or expired token. Please log in again.'}, status=status.HTTP_401_UNAUTHORIZED)
+
         email = request.data.get('email', '').strip().lower()
+
+        if email != token_email:
+            return Response({"error": "You can only submit the profile for your own registered email."}, status=status.HTTP_403_FORBIDDEN)
 
         if not email.endswith('rishihood.edu.in'):
             print("❌ Email domain not allowed")
@@ -86,12 +100,27 @@ class MatchResultView(APIView):
                 )
             )
 
+            similarities = []
+            if profile.sleep_schedule.lower() == matched_with.sleep_schedule.lower():
+                similarities.append(f"You are both {profile.sleep_schedule}s")
+            
+            if profile.cleanliness == matched_with.cleanliness:
+                similarities.append(f"You both have a cleanliness rating of {profile.cleanliness}")
+            
+            if profile.introvert_extrovert.lower() == matched_with.introvert_extrovert.lower():
+                similarities.append(f"You are both {profile.introvert_extrovert}s")
+
+            if profile.course.lower() == matched_with.course.lower():
+                course_display = dict(COURSE_CHOICES).get(profile.course, profile.course)
+                similarities.append(f"You are both studying {course_display}")
+
             data = {
                 "you": profile.full_name,
                 "matched_with": matched_with.full_name,
                 "matched_email": matched_with.email,
                 "score": match.score,
-                "common_interests": common_interests
+                "common_interests": common_interests,
+                "similarities": similarities
             }
             return Response(data)
 
@@ -160,9 +189,7 @@ def set_password(request):
         password = data.get('password')
 
         try:
-            from .models import StudentUser
             user = StudentUser.objects.get(email=email, is_verified=True)
-            from django.contrib.auth.hashers import make_password
             user.password = make_password(password)
             user.save()
 

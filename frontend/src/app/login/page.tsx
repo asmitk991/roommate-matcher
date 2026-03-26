@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import api from '@/utils/api';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -19,7 +19,7 @@ export default function LoginPage() {
   
   const handleLogin = async () => {
     try {
-      const res = await axios.post('http://127.0.0.1:8000/api/auth/login/', {
+      const res = await api.post('/api/auth/login/', {
         email,
         password,
       });

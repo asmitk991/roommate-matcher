@@ -2,31 +2,27 @@
 
 import { useState, useEffect } from 'react';
 
+import api from '@/utils/api';
+
 export default function OTPVerificationPage() {
   const [email, setEmail] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState('');
   const [message, setMessage] = useState('');
 
-
   const sendOtp = async () => {
     setMessage(""); // Clear old message
   
-    const res = await fetch('http://127.0.0.1:8000/api/send-otp/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-  
-    const data = await res.json();
-  
-    if (res.ok) {
-      setOtpSent(true);
-      setMessage('✅ OTP sent successfully. Check your email.');
-    } else {
+    try {
+      const res = await api.post('/api/send-otp/', { email });
+      if (res.status === 200) {
+        setOtpSent(true);
+        setMessage('✅ OTP sent successfully. Check your email.');
+      }
+    } catch (error: any) {
+      const data = error.response?.data || {};
       if (data.error === 'Account already exists. Please log in.') {
         setMessage('⚠️ Account already exists. Redirecting to login...');
-        // Optional: wait for 2 seconds before redirect
         setTimeout(() => {
           window.location.href = '/login';
         }, 2000);
@@ -39,23 +35,18 @@ export default function OTPVerificationPage() {
   };
 
   const verifyOtp = async () => {
-    const res = await fetch('http://127.0.0.1:8000/api/verify-otp/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, otp }),
-    });
+    try {
+      const res = await api.post('/api/verify-otp/', { email, otp });
+      if (res.status === 200) {
+        setMessage('✅ ' + res.data.message || 'OTP verified!');
+        localStorage.setItem('verifiedEmail', email);
+        localStorage.setItem('verified', 'true');
 
-    if (res.ok) {
-      const data = await res.json();
-      setMessage('✅ ' + data.message);
-      localStorage.setItem('verifiedEmail', email);
-      localStorage.setItem('verified', 'true'); // ✅ Mark as verified
-
-      // ✅ Redirect to form
-      setTimeout(() => {
-        window.location.href = '/set-password';
-      }, 1000);
-    } else {
+        setTimeout(() => {
+          window.location.href = '/set-password';
+        }, 1000);
+      }
+    } catch (error) {
       setMessage('❌ Invalid OTP. Please try again.');
     }
   };

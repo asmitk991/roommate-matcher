@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
+import api from '@/utils/api';
 
 
 export default function MatchForm() {
@@ -10,7 +11,7 @@ export default function MatchForm() {
   useEffect(() => {
     const verifiedEmail = localStorage.getItem('verifiedEmail');
     if (!verifiedEmail) {
-      router.push('/verify');
+      router.push('/otp');
     }
   }, []);
   
@@ -42,19 +43,16 @@ export default function MatchForm() {
     setIsSubmitted(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/profile/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ...formData, is_submitted: true }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Something went wrong");
+      const token = localStorage.getItem('token');
+      await api.post(
+        '/api/profile/', 
+        { ...formData, is_submitted: true },
+        { headers: { Authorization: token } }
+      );
       alert("✅ Profile submitted successfully!");
-    } catch (err) {
-      alert("❌ Submission failed.");
+      router.push('/dashboard');
+    } catch (err: any) {
+      alert("❌ Submission failed: " + (err.response?.data?.error || "Something went wrong"));
       console.error(err);
       setIsSubmitted(false);
     }
