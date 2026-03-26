@@ -135,29 +135,39 @@ class MatchResultView(APIView):
 
 
 
+import logging
+logger = logging.getLogger(__name__)
+
 class SendOTPView(APIView):
     def post(self, request):
         email = request.data.get('email')
-        if not email.endswith('rishihood.edu.in'):
+        logger.info(f"SendOTP called with email: {email}")
+        
+        if not email or not email.endswith('rishihood.edu.in'):
+            logger.info("Failed domain check")
             return Response({"error": "Invalid email domain"}, status=400)
+
+        if StudentUser.objects.filter(email=email).exists():
+            logger.info("Account already exists")
+            return Response({"error": "Account already exists. Please log in."}, status=400)
 
         otp = str(random.randint(100000, 999999))
         EmailOTP.objects.update_or_create(email=email, defaults={"otp": otp})
 
-        if StudentUser.objects.filter(email=email).exists():
-            return Response({"error": "Account already exists. Please log in."}, status=400)
-
-        # Replace with your email backend setup
-        send_mail(
-            subject="Your Roommate Matcher OTP",
-            message=f"Your OTP is: {otp}",
-            from_email="noreply@roommatematcher.com",
-            recipient_list=[email],
-            fail_silently=False,
-        )
+        try:
+            send_mail(
+                subject="Your Roommate Matcher OTP",
+                message=f"Your OTP is: {otp}",
+                from_email="noreply@roommatematcher.com",
+                recipient_list=[email],
+                fail_silently=False,
+            )
+            logger.info("Email sent successfully")
+        except Exception as e:
+            logger.error(f"send_mail failed: {e}")
+            return Response({"error": f"Email sending failed: {str(e)}"}, status=400)
 
         return Response({"message": "OTP sent"}, status=200)
-
 class VerifyOTPView(APIView):
     def post(self, request):
         email = request.data.get('email')
