@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: 'http://localhost:8000', // your Django backend base URL
+  baseURL: 'https://roommate-matcher-pcz6.onrender.com', // your Django backend base URL
   withCredentials: true, // allows cookies / session headers
 });
 
