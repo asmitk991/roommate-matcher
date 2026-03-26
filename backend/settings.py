@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-ka7m^kktr@%-%1m%fr5!)nc#p3h=sd80kfbo@w73qb5)d!uwu9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['roommate-matcher.onrender.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['roommate-matcher.onrender.com', 'localhost', '127.0.0.1','roommate-matcher-1.onrender.com','roommate-matcher-rf72vuke8-asmitk991s-projects.vercel.app']
 
 
 # Application definition
