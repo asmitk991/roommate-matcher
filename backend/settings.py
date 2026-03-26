@@ -58,6 +58,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://roommate-matcher-zeta.vercel.app",
+    "https://roommate-matcher-rf72vuke8-asmitk991s-projects.vercel.app",
+    "https://roommate-matcher-1.onrender.com",
+]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://roommate-matcher.*\.vercel\.app$",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
