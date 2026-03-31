@@ -48,8 +48,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -59,14 +60,26 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # Add this for POST requests from Vercel to work
-CSRF_TRUSTED_ORIGINS = [
+CORS_ALLOWED_ORIGINS = [
     "https://roommate-matcher-zeta.vercel.app",
-    "https://roommate-matcher-rf72vuke8-asmitk991s-projects.vercel.app",
-    "https://*.onrender.com",
+    "http://localhost:5173",  # For local development
+    "http://localhost:3000",  # For local development
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
 ]
 
 ROOT_URLCONF = 'backend.urls'
