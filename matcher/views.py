@@ -1,5 +1,3 @@
-from django.shortcuts import render
-
 from rest_framework import generics
 from .serializers import UserProfileSerializer
 from rest_framework.response import Response
@@ -8,18 +6,13 @@ from .models import UserProfile, MatchResult, COURSE_CHOICES
 from .models import EmailOTP
 from django.core.mail import send_mail
 import random
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-import json
-from django.contrib.auth.hashers import make_password
-from .models import StudentUser 
-import jwt # type: ignore
+from django.contrib.auth.hashers import make_password, check_password
+from .models import StudentUser
+import jwt  # type: ignore
 from django.conf import settings
-from django.contrib.auth.hashers import check_password
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from rest_framework import status
-from rest_framework.parsers import JSONParser
-from io import BytesIO
+import logging
 
 
 
@@ -158,7 +151,7 @@ class SendOTPView(APIView):
             send_mail(
                 subject="Your Roommate Matcher OTP",
                 message=f"Your OTP is: {otp}",
-                from_email="noreply@roommatematcher.com",
+                from_email=settings.EMAIL_HOST_USER,  # Use the authenticated email
                 recipient_list=[email],
                 fail_silently=False,
             )
@@ -179,10 +172,13 @@ class VerifyOTPView(APIView):
                 return Response({"error": "OTP expired"}, status=400)
 
             if record.otp == otp:
-                # ✅ Create or update StudentUser
+                # Create or update StudentUser
                 user, created = StudentUser.objects.get_or_create(email=email)
                 user.is_verified = True
                 user.save()
+
+                # Clean up the OTP record once it's used
+                record.delete()
 
                 return Response({"verified": True, "email": email}, status=200)
             else:
@@ -191,31 +187,34 @@ class VerifyOTPView(APIView):
         except EmailOTP.DoesNotExist:
             return Response({"error": "No OTP found for this email"}, status=404)
 
-@csrf_exempt
-def set_password(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        email = data.get('email')
-        password = data.get('password')
+class SetPasswordView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response({'error': 'Email and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(password) < 8:
+            return Response({'error': 'Password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             user = StudentUser.objects.get(email=email, is_verified=True)
             user.password = make_password(password)
             user.save()
 
-            # 🔐 Generate JWT
+            # Generate JWT
             payload = {
                 'email': user.email,
-                'exp': datetime.utcnow() + timedelta(days=7),
+                'exp': datetime.now(timezone.utc) + timedelta(days=7),
+                'iat': datetime.now(timezone.utc),
             }
             token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
 
-            return JsonResponse({'message': 'Password set successfully', 'token': token}, status=200)
+            return Response({'message': 'Password set successfully', 'token': token}, status=status.HTTP_200_OK)
 
         except StudentUser.DoesNotExist:
-            return JsonResponse({'error': 'User not verified or does not exist'}, status=404)
-
-    return JsonResponse({'error': 'Invalid request'}, status=400)
+            return Response({'error': 'User not verified or does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
 class GetMeView(APIView):
     def get(self, request):
@@ -254,7 +253,8 @@ class LoginView(APIView):
             if check_password(password, user.password):
                 payload = {
                     'email': user.email,
-                    'exp': datetime.utcnow() + timedelta(days=7),
+                    'exp': datetime.now(timezone.utc) + timedelta(days=7),
+                    'iat': datetime.now(timezone.utc),
                 }
                 token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
                 return Response({'token': token, 'email': user.email}, status=status.HTTP_200_OK)
