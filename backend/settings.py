@@ -49,10 +49,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -71,6 +71,13 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://roommate-matcher.*\.vercel\.app$",
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+# Add this for POST requests from Vercel to work
+CSRF_TRUSTED_ORIGINS = [
+    "https://roommate-matcher-zeta.vercel.app",
+    "https://roommate-matcher-rf72vuke8-asmitk991s-projects.vercel.app",
+    "https://roommate-matcher-1.onrender.com",
+]
 
 ROOT_URLCONF = 'backend.urls'
 
